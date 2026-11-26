@@ -1,4 +1,4 @@
-// Jenkinsfile.windows
+// JenkinsFile
 // Declarative Jenkins pipeline for Python Playwright on Windows build agents
 
 pipeline {
@@ -38,17 +38,48 @@ pipeline {
       steps {
         powershell '''
           if (-not (Test-Path ".\\venv\\Scripts\\python.exe")) {
-              C:\\Users\\Dell\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m venv venv
+              $pythonExe = $null
+
+              # Search standard Windows Python installation paths (ignoring WindowsApps stub)
+              $searchPatterns = @(
+                  "$env:LOCALAPPDATA\\Programs\\Python\\Python*\\python.exe",
+                  "C:\\Users\\Dell\\AppData\\Local\\Programs\\Python\\Python*\\python.exe",
+                  "C:\\Program Files\\Python*\\python.exe",
+                  "C:\\Python*\\python.exe"
+              )
+
+              foreach ($pattern in $searchPatterns) {
+                  $found = Get-Item $pattern -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+                  if ($found) {
+                      $pythonExe = $found.FullName
+                      break
+                  }
+              }
+
+              if (-not $pythonExe) {
+                  $cmd = Get-Command python -ErrorAction SilentlyContinue
+                  if ($cmd -and ($cmd.Source -notlike "*WindowsApps*")) {
+                      $pythonExe = $cmd.Source
+                  }
+              }
+
+              if (-not $pythonExe) {
+                  throw "Real Python installation not found! Please install Python from python.org (check 'Add python.exe to PATH' / 'Install for all users') and restart Jenkins."
+              }
+
+              Write-Host "Using Python: $pythonExe"
+              & $pythonExe -m venv venv
           }
-          .\\venv\\Scripts\\python -m pip install --upgrade pip
-          .\\venv\\Scripts\\pip install -r requirements.txt
+
+          .\\venv\\Scripts\\python.exe -m pip install --upgrade pip
+          .\\venv\\Scripts\\pip.exe install -r requirements.txt
         '''
       }
     }
     stage('🤖 Install Playwright Browsers & Env') {
       steps {
         powershell '''
-          .\\venv\\Scripts\\playwright install
+          .\\venv\\Scripts\\playwright.exe install
           if (-not (Test-Path .env) -and (Test-Path .env.example)) { Copy-Item .env.example .env }
         '''
       }
@@ -62,7 +93,7 @@ pipeline {
           powershell """
             if (Test-Path "reports") { Remove-Item -Recurse -Force "reports" }
             New-Item -ItemType Directory -Force -Path "reports\\allure-results" | Out-Null
-            .\\venv\\Scripts\\pytest -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml
+            .\\venv\\Scripts\\pytest.exe -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml
           """
         }
       }
