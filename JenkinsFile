@@ -1,0 +1,91 @@
+// Jenkinsfile.windows
+// Declarative Jenkins pipeline for Python Playwright on Windows build agents
+
+pipeline {
+  agent { label 'windows' } // Change to 'any' if your Jenkins controller itself runs on Windows without a separate 'windows' label
+  tools {
+    git 'Default'
+  }
+  options { timestamps() }
+  parameters {
+    choice(
+      name: 'TEST_SUITE',
+      choices: ['e2e', 'master', 'sanity', 'regression', 'api', 'web', 'datadriven'],
+      description: 'Select the pytest marker/suite to run'
+    )
+    choice(
+      name: 'BROWSER',
+      choices: ['chromium', 'firefox', 'webkit'],
+      description: 'Select the browser for tests'
+    )
+    choice(
+      name: 'MODE',
+      choices: ['headless', 'headed'],
+      description: 'Run tests in headless or headed mode'
+    )
+  }
+  environment {
+    ENV = 'test'
+    CI = '1'
+  }
+  stages {
+    stage('🔄 Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+    stage('📦 Setup Python Venv & Dependencies') {
+      steps {
+        powershell '''
+          if (-not (Test-Path venv)) { python -m venv venv }
+          .\\venv\\Scripts\\python -m pip install --upgrade pip
+          .\\venv\\Scripts\\pip install -r requirements.txt
+        '''
+      }
+    }
+    stage('🤖 Install Playwright Browsers & Env') {
+      steps {
+        powershell '''
+          .\\venv\\Scripts\\playwright install
+          if (-not (Test-Path .env) -and (Test-Path .env.example)) { Copy-Item .env.example .env }
+        '''
+      }
+    }
+    stage('▶️ Run Playwright Tests') {
+      steps {
+        script {
+          def marker = params.TEST_SUITE
+          def browserFlag = "--browser=${params.BROWSER}"
+          def modeFlag = params.MODE == 'headed' ? '--headed' : ''
+          powershell ".\\venv\\Scripts\\pytest -m ${marker} ${browserFlag} ${modeFlag}"
+        }
+      }
+    }
+  }
+  post {
+    always {
+      archiveArtifacts artifacts: 'reports/**,test-results/**', allowEmptyArchive: true
+      junit testResults: 'reports/results.xml', allowEmptyResults: true
+      allure includeProperties: false, results: [[path: 'reports/allure-results']]
+      emailext(
+        subject: "Jenkins Build: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
+        body: """
+            <h2>Python Playwright Test Execution Report</h2>
+            <p><b>Job:</b> ${env.JOB_NAME}</p>
+            <p><b>Build:</b> #${env.BUILD_NUMBER}</p>
+            <p><b>Status:</b> ${currentBuild.currentResult}</p>
+            <p><b>Test Suite:</b> ${params.TEST_SUITE}</p>
+            <p><b>Browser:</b> ${params.BROWSER}</p>
+            <p>
+              <a href="${env.BUILD_URL}">Open Jenkins Build</a> |
+              <a href="${env.BUILD_URL}allure">Open Allure Report</a>
+            </p>
+        """,
+        to: "venkatamanisha9@gmail.com",
+        from: "venkatamanisha9@gmail.com",
+        replyTo: "venkatamanisha9@gmail.com",
+        mimeType: "text/html"
+      )
+    }
+  }
+}
