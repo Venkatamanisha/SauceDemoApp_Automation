@@ -2,7 +2,7 @@
 // Declarative Jenkins pipeline for Python Playwright on Windows build agents
 
 pipeline {
-  agent { any } // Change to 'any' if your Jenkins controller itself runs on Windows without a separate 'windows' label
+  agent  any  // Change to 'any' if your Jenkins controller itself runs on Windows without a separate 'windows' label
   tools {
     git 'Default'
   }
