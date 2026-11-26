@@ -59,7 +59,11 @@ pipeline {
           def marker = params.TEST_SUITE
           def browserFlag = "--browser=${params.BROWSER}"
           def modeFlag = params.MODE == 'headed' ? '--headed' : ''
-          powershell ".\\venv\\Scripts\\pytest -m ${marker} ${browserFlag} ${modeFlag}"
+          powershell """
+            if (Test-Path "reports") { Remove-Item -Recurse -Force "reports" }
+            New-Item -ItemType Directory -Force -Path "reports\\allure-results" | Out-Null
+            .\\venv\\Scripts\\pytest -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml
+          """
         }
       }
     }
@@ -68,7 +72,12 @@ pipeline {
     always {
       archiveArtifacts artifacts: 'reports/**,test-results/**', allowEmptyArchive: true
       junit testResults: 'reports/results.xml', allowEmptyResults: true
-      allure includeProperties: false, results: [[path: 'reports/allure-results']]
+      allure([
+        includeProperties: false,
+        jdk: '',
+        reportBuildPolicy: 'ALWAYS',
+        results: [[path: 'reports/allure-results']]
+      ])
       emailext(
         subject: "Jenkins Build: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
         body: """
