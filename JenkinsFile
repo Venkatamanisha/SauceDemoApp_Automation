@@ -2,7 +2,7 @@
 // Declarative Jenkins pipeline for Python Playwright on Windows build agents
 
 pipeline {
-  agent  any  // Change to 'any' if your Jenkins controller itself runs on Windows without a separate 'windows' label
+  agent any
   tools {
     git 'Default'
   }
@@ -37,7 +37,9 @@ pipeline {
     stage('📦 Setup Python Venv & Dependencies') {
       steps {
         powershell '''
-          if (-not (Test-Path venv)) { python -m venv venv }
+          if (-not (Test-Path ".\\venv\\Scripts\\python.exe")) {
+              C:\\Users\\Dell\\AppData\\Local\\Programs\\Python\\Python314\\python.exe -m venv venv
+          }
           .\\venv\\Scripts\\python -m pip install --upgrade pip
           .\\venv\\Scripts\\pip install -r requirements.txt
         '''
