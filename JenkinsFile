@@ -27,7 +27,7 @@ pipeline {
   environment {
     ENV = 'test'
     CI = '1'
-    BASE_URL = 'https://saucedemo.com'
+    BASE_URL = 'https://www.saucedemo.com'
     STANDARD_USER = 'standard_user'
     PASSWORD = 'secret_sauce'
   }
