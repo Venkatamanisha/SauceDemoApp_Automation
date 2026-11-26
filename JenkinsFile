@@ -27,10 +27,9 @@ pipeline {
   environment {
     ENV = 'test'
     CI = '1'
-    BASE_URL = credentials('SAUCE_BASE_URL')
-    // Uncomment and match the IDs in Jenkins Credentials if your .env has more variables:
-    // USERNAME = credentials('SAUCE_USERNAME')
-    // PASSWORD = credentials('SAUCE_PASSWORD')
+    BASE_URL = 'https://saucedemo.com'
+    STANDARD_USER = 'standard_user'
+    PASSWORD = 'secret_sauce'
   }
   stages {
     stage('🔄 Checkout') {
@@ -104,14 +103,18 @@ pipeline {
   }
   post {
     always {
-      archiveArtifacts artifacts: 'reports/**,test-results/**', allowEmptyArchive: true
-      junit testResults: 'reports/results.xml', allowEmptyResults: true
-      allure([
-        includeProperties: false,
-        jdk: '',
-        reportBuildPolicy: 'ALWAYS',
-        results: [[path: 'reports/allure-results']]
-      ])
+      script {
+        if (fileExists('reports')) {
+          archiveArtifacts artifacts: 'reports/**,test-results/**', allowEmptyArchive: true
+          junit testResults: 'reports/results.xml', allowEmptyResults: true
+          allure([
+            includeProperties: false,
+            jdk: '',
+            reportBuildPolicy: 'ALWAYS',
+            results: [[path: 'reports/allure-results']]
+          ])
+        }
+      }
       emailext(
         subject: "Jenkins Build: ${env.JOB_NAME} #${env.BUILD_NUMBER} - ${currentBuild.currentResult}",
         body: """
