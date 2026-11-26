@@ -27,6 +27,10 @@ pipeline {
   environment {
     ENV = 'test'
     CI = '1'
+    BASE_URL = credentials('SAUCE_BASE_URL')
+    // Uncomment and match the IDs in Jenkins Credentials if your .env has more variables:
+    // USERNAME = credentials('SAUCE_USERNAME')
+    // PASSWORD = credentials('SAUCE_PASSWORD')
   }
   stages {
     stage('🔄 Checkout') {
@@ -39,8 +43,6 @@ pipeline {
         powershell '''
           if (-not (Test-Path ".\\venv\\Scripts\\python.exe")) {
               $pythonExe = $null
-
-              # Search standard Windows Python installation paths (ignoring WindowsApps stub)
               $searchPatterns = @(
                   "$env:LOCALAPPDATA\\Programs\\Python\\Python*\\python.exe",
                   "C:\\Users\\Dell\\AppData\\Local\\Programs\\Python\\Python*\\python.exe",
@@ -64,7 +66,7 @@ pipeline {
               }
 
               if (-not $pythonExe) {
-                  throw "Real Python installation not found! Please install Python from python.org (check 'Add python.exe to PATH' / 'Install for all users') and restart Jenkins."
+                  throw "Real Python installation not found!"
               }
 
               Write-Host "Using Python: $pythonExe"
@@ -93,7 +95,8 @@ pipeline {
           powershell """
             if (Test-Path "reports") { Remove-Item -Recurse -Force "reports" }
             New-Item -ItemType Directory -Force -Path "reports\\allure-results" | Out-Null
-            .\\venv\\Scripts\\pytest.exe -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml
+            .\\venv\\Scripts\\pytest.exe -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml | Tee-Object -FilePath "reports\\pytest-output.txt"
+            exit \$LASTEXITCODE
           """
         }
       }
