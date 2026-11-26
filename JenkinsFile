@@ -10,8 +10,8 @@ pipeline {
   parameters {
     choice(
       name: 'TEST_SUITE',
-      choices: ['e2e', 'master', 'sanity', 'regression', 'api', 'web', 'datadriven'],
-      description: 'Select the pytest marker/suite to run'
+      choices: ['all', 'smoke', 'regression', 'sanity', 'e2e', 'api', 'web', 'datadriven'],
+      description: 'Select the pytest marker/suite to run (or all for every test)'
     )
     choice(
       name: 'BROWSER',
@@ -88,13 +88,13 @@ pipeline {
     stage('▶️ Run Playwright Tests') {
       steps {
         script {
-          def marker = params.TEST_SUITE
+          def markerFlag = params.TEST_SUITE == 'all' ? '' : "-m ${params.TEST_SUITE}"
           def browserFlag = "--browser=${params.BROWSER}"
           def modeFlag = params.MODE == 'headed' ? '--headed' : ''
           powershell """
             if (Test-Path "reports") { Remove-Item -Recurse -Force "reports" }
             New-Item -ItemType Directory -Force -Path "reports\\allure-results" | Out-Null
-            .\\venv\\Scripts\\pytest.exe -m ${marker} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml | Tee-Object -FilePath "reports\\pytest-output.txt"
+            .\\venv\\Scripts\\pytest.exe ${markerFlag} ${browserFlag} ${modeFlag} --alluredir=reports/allure-results --junitxml=reports/results.xml | Tee-Object -FilePath "reports\\pytest-output.txt"
             exit \$LASTEXITCODE
           """
         }
